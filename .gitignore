@@ -1,0 +1,19 @@
+########## file extensions (*.iml, ...)
+#
+#
+*.iml
+*.eml
+
+
+########## folders (build, bin, ...)
+#
+#
+bin/
+build/
+out/
+
+########## specific folders  (root/.gradle, root/.idea, ...)
+#
+#
+/.gradle/
+/.idea/

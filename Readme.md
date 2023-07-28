@@ -9,7 +9,7 @@ The tests require Docker to execute but are otherwise self-contained. To get thi
  
 ## Tests ##
 
-The included tests demonstrate how a applicatoin can be tested against typical network issues like high latency, low bandwidth,
+The included tests demonstrate how a application can be tested against typical network issues like high latency, low bandwidth,
 sudden connection drops ... The focus is on setting up the communication between host, containers and toxiproxy, not the actual
 testing (-:
 
@@ -18,5 +18,10 @@ testing (-:
 ### BaselineTests ###
 
 showcase how to setup connectivity with testContainers, read the blogpost for more details:
-* testContainers: clientContainer -> serverContainer
-* testContainersViaLocalHost: clientContainer -> HostProxy | Java -> serverContainer
+
+| test                                 | client | server | proxy app | toxiproxy | why                 |
+|--------------------------------------|--------|--------|-----------|-----------|---------------------|
+| testContainers                       | simple | simple |     -     |     -     | baseline works      |
+| testContainersViaLocalHost           | simple | simple |     ✓     |     -     | integrate the host  |
+| testStreamingContainers              | stream | stream |     -     |     -     | streaming works     |
+| testStreamingContainersWithToxiProxy | stream | stream |     -     |     ✓     | integrate toxiproxy |

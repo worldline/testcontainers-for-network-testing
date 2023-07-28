@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 //@Execution(ExecutionMode.CONCURRENT)
-public class BaselineTest extends DockerTestBase
+public class BaselineTests extends DockerTestBase
 {
     @Test
     @DisplayName("ensure the containers are properly setup and can netcat from client to server")

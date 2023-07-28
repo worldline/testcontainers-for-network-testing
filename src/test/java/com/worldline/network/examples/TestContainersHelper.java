@@ -1,9 +1,12 @@
 package com.worldline.network.examples;
 
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.function.Supplier;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.images.builder.ImageFromDockerfile;
+import org.testcontainers.shaded.org.apache.commons.io.IOUtils;
 
 public class TestContainersHelper
 {
@@ -31,6 +34,22 @@ public class TestContainersHelper
     public static Supplier<Network> createKNettyTestNetwork()
     {
         return () -> Network.newNetwork();
+    }
+
+    /**
+     * @return true if the two readers represent an identical file on the byte level
+     */
+    public static boolean compareInputStreams(InputStreamReader stream1, InputStreamReader stream2) throws IOException
+    {
+        return IOUtils.contentEquals(stream1, stream2);
+    }
+
+    /**
+     * @return converts for toxiproxy bandwidth limits, uses 1024 as multiplier
+     */
+    public static int toKiloBytePerSec(int megaBitPerSec)
+    {
+        return megaBitPerSec * 1024 / 8;
     }
 
     private static ImageFromDockerfile createImage(final String resourceRelativePath)

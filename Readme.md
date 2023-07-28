@@ -25,3 +25,4 @@ showcase how to setup connectivity with testContainers, read the blogpost for mo
 | testContainersViaLocalHost           | simple | simple |     ✓     |     -     | integrate the host  |
 | testStreamingContainers              | stream | stream |     -     |     -     | streaming works     |
 | testStreamingContainersWithToxiProxy | stream | stream |     -     |     ✓     | integrate toxiproxy |
+| testStreamingFullExample             | stream | stream |     ✓     |     ✓     | everything together |

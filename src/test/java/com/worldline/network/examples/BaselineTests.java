@@ -131,7 +131,7 @@ public class BaselineTests extends DockerTestBase
     }
 
     @Test
-    @DisplayName("ensure the containers correctly stream 100 MB in 20seconds (+50% -10%) if we reduce the bandwidth to 20 Mbit/s with ToxiProxy")
+    @DisplayName("ensure the containers correctly stream 100 MB in 20seconds (+50% -10%) if we reduce the bandwidth to 40 Mbit/s with ToxiProxy")
     void testStreamingContainersWithToxiProxy() throws IOException, InterruptedException, TimeoutException
     {
         // setup
@@ -164,7 +164,7 @@ public class BaselineTests extends DockerTestBase
             var toxiproxyClient = new ToxiproxyClient(toxiproxy.getHost(), toxiproxy.getControlPort());
             var proxy = toxiproxyClient.createProxy("lowBandwidth", "0.0.0.0:8666", serverName + ":8000");
             proxy.toxics()
-                    .bandwidth("10mbit", ToxicDirection.DOWNSTREAM, toKiloBytePerSec(40));
+                    .bandwidth("40mbit", ToxicDirection.DOWNSTREAM, toKiloBytePerSec(40));
 
             // act
             streamServer.start();
@@ -188,4 +188,84 @@ public class BaselineTests extends DockerTestBase
             assertTrue(endTime - startTime <= (20000 * 1.5));
         }
     }
+
+    @Test
+    @DisplayName("ensure the full setup works, streaming from the server via toxiproxy via the proxy-app to the client (5 Mbit/s, 10 MB => 16 seconds (+50% -10%))")
+    void testStreamingFullExample() throws IOException, InterruptedException, TimeoutException
+    {
+        // setup
+        var serverName = "test-stream-server";
+        var clientName = "test-stream-client";
+
+        try (
+                var testNetwork = createKNettyTestNetwork().get();
+                var proxyUnderTest = new SimpleNettyForwardProxy();
+                var streamServer = createTestContainer("streamserver", serverName, testNetwork).get();
+                var streamClient = createTestContainer("streamclient", clientName, testNetwork).get();
+                var toxiproxy = new ToxiproxyContainer("ghcr.io/shopify/toxiproxy:2.5.0")
+        ) {
+
+            // | container:8000 | <- | container:8666 | <- Exposed <-     Host:11011        <- Tunneled:900 <- | container |
+            // |      Server    | <- |    ToxiProxy   |       <-       ProxyUnderTest       <-      <-         |   Client  |
+            int serverPort = 8000;
+            int toxiPort = 8666;
+            int exposedPort = -1; // will be set at runtime
+            int hostPort = 11011;
+            int tunneledPort = 900;
+
+            // setup
+            var logSniffer = new WaitingConsumer();
+
+            // server
+            {
+                streamServer
+                        .withCommand("10") // MB of random data
+                        .waitingFor(Wait.forLogMessage("\\[TestContainers\\] ready for testing\\n", 1));
+                streamServer.start();
+            }
+            // toxiproxy
+            {
+                toxiproxy
+                        .withNetwork(testNetwork)
+                        .withNetworkAliases("toxiproxy")
+                        .start();
+
+                var toxiproxyClient = new ToxiproxyClient(toxiproxy.getHost(), toxiproxy.getControlPort());
+                var proxy = toxiproxyClient.createProxy("lowBandwidth", "0.0.0.0:" + toxiPort, serverName + ":" + serverPort);
+                proxy.toxics().bandwidth("5mbit", ToxicDirection.DOWNSTREAM, toKiloBytePerSec(5));
+            }
+            // proxy under test
+            {
+                exposedPort = toxiproxy.getMappedPort(toxiPort);
+                proxyUnderTest.start(hostPort, "localhost", exposedPort).sync();
+            }
+            // client
+            {
+                org.testcontainers.Testcontainers.exposeHostPorts(Map.of(hostPort, tunneledPort));
+                streamClient
+                        .withCommand("host.testcontainers.internal", Integer.toString(tunneledPort))
+                        .withLogConsumer(logSniffer);
+            }
+
+            // act
+            long startTime = System.currentTimeMillis();
+            {
+                streamClient.start();
+
+                // verify
+                logSniffer.waitUntil(frame -> frame.getUtf8String().contains("[TestContainers] ready for verification"), 60, TimeUnit.SECONDS);
+            }
+            long endTime = System.currentTimeMillis();
+
+            var reader1 = readFileFromContainer(streamServer.getContainerId(), "/opt/streaming/random");
+            var reader2 = readFileFromContainer(streamClient.getContainerId(), "/opt/receiving/random");
+
+            assertTrue(compareInputStreams(reader1, reader2));
+
+            System.out.println("transfer time was " + (endTime - startTime));
+            assertTrue(endTime - startTime >= (16000 * 0.9));
+            assertTrue(endTime - startTime <= (16000 * 1.5));
+        }
+    }
+
 }
